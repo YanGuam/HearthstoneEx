@@ -7,31 +7,6 @@ AllMinions = {}
 
 local player1, player2
 
-function createHeroSkill(skill)
-    local card = sgs.CreateSkillCard
-    {
-        name = skill.name .. "Card",
-        target_fixed = skill.target_fixed,
-        filter = skill.filter,
-        on_use = skill.on_use
-    }
-    
-    local vsSkill = sgs.CreateZeroCardViewAsSkill
-    {
-        name = skill.name,
-        enabled_at_play = function(self, player)
-            return not player:hasUsed(("#%sCard"):format(skill.name))
-        end,
-        view_as = function()
-            local cd = card:clone()
-            cd:setSkillName(skill.name)
-            return cd
-        end
-    }
-    
-    return vsSkill
-end
-
 Card = class("Card")
 
 Card.static.RARITY_NON = -1
@@ -133,6 +108,10 @@ function Unit:damage(target, point, card)
     self:_onDamaged(target, point, card)
 end
 
+function Unit:hasStealthEffect()
+    return false
+end
+
 function Unit:onKilled() end 
 
 HPlayer = class("HPlayer", Unit)
@@ -177,9 +156,18 @@ end
 
 Minion = class("Minion", Unit)
 
+Minion.static.EFFECT_NONE = 0x00
+Minion.static.EFFECT_CHARGE = 0x01
+Minion.static.EFFECT_COMBO = 0x02
+Minion.static.EFFECT_DIVINE_SHIELD = 0x04
+Minion.static.EFFECT_STEALTH = 0x08
+Minion.static.EFFECT_TAUNT = 0x16
+Minion.static.EFFECT_WINDFURY = 0x32
+
 function Minion:initialize(player)
     Unit:initialize(player)
     self._room:changeHero(self.player, "minion", false)
+    self.effect = Minion.EFFECT_NONE
 end
 
 function Minion:setMinion(name)
@@ -190,6 +178,10 @@ end
 
 function Minion:_onKilled()
     self:setMinion("minion")
+end
+
+function Minion:hasStealthEffect()
+    return bit32.band(self.effect, Minion.EFFECT_STEALTH) ~= 0
 end
 
 HearthstoneExchangeCard = sgs.CreateSkillCard
@@ -236,6 +228,35 @@ end
 
 local Player1Cards = {}
 local Player2Cards = {}
+
+function createHeroPower(skill)
+    local card = sgs.CreateSkillCard
+    {
+        name = skill.name .. "Card",
+        target_fixed = skill.target_fixed,
+        filter = function(self, targets, to_select, player)
+            return #targets == 0 and not UnitOf(to_select):hasStealthEffect()
+        end,
+        on_use = function(self, room, source, targets)
+            skill.effect(skill, UnitOf(source), UnitOf(targets[1]))
+        end
+    }
+    
+    local vsSkill = sgs.CreateZeroCardViewAsSkill
+    {
+        name = skill.name,
+        enabled_at_play = function(self, player)
+            return not player:hasUsed(("#%sCard"):format(skill.name))
+        end,
+        view_as = function()
+            local cd = card:clone()
+            cd:setSkillName(skill.name)
+            return cd
+        end
+    }
+    
+    return vsSkill
+end
 
 function createHero(extension, name, chinese, title, skill, female)
     HearthstoneHeros[chinese] = name
