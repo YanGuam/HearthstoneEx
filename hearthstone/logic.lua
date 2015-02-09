@@ -32,6 +32,11 @@ Card.static.CLASS_PRIEST = 8
 Card.static.CLASS_ROGUE = 9
 
 AllCards = {}
+HCards = {}
+
+function HCardOf(card)
+    return HCards[card]
+end
 
 function Card:initialize(name, chinese, cardType, heroType, rarity, num)
     self.name = name
@@ -68,6 +73,7 @@ function MinionCard:initialize(nm, heroType, rarity, num)
         subtype = "MinionCard",
         target_fixed = false
     }
+    HCards[self.card] = self
 }
 
 Unit = class("Unit")
@@ -91,7 +97,7 @@ function Unit:initialize(player)
 end
 
 function Unit:getAttack()
-    return self.player:getMark("@Attack")
+    return self.player:getMark("@attack")
 end
 
 function Unit:attack(target)
@@ -162,8 +168,9 @@ function HPlayer:getOpponent()
 end
 
 function HPlayer:addArmor(point)
-    self.armor = self.armor + math.max(point, 0)
-    self._room:addPlayerMark(self.player, "@armor")
+    point = math.max(point, 0)
+    self.armor = self.armor + point
+    self._room:addPlayerMark(self.player, "@armor", point)
 end
 
 function HPlayer:loseHp(point)
@@ -231,7 +238,7 @@ function HPlayer:askForExchange()
     local card = self._room:askForCard(self.player, "@@HearthstoneExchange", "@HearthstoneExchange", sgs.QVariant(), sgs.Card_MethodNone)
     if card then
         for _, id in sgs.qlist(card:getSubcards()) do
-            sgs.Sanguosha:getCard(id):addToDeck(self)
+            HCardOf(sgs.Sanguosha:getCard(id)):addToDeck(self)
         end
         room:moveCardTo(card, nil, sgs.Player_DrawPile)
     end
@@ -239,7 +246,7 @@ end
 
 function HPlayer:obtainTheCoin()
     local coin = AllCards["幸运币"][1]
-    self._room:obtainCard(self.player, id)
+    self._room:obtainCard(self.player, coin)
 end
 
 local Player1Cards = {}
