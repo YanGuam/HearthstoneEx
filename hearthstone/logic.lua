@@ -114,6 +114,9 @@ end
 
 function Unit:onKilled() end 
 
+function Unit:recover(point)
+end
+
 HPlayer = class("HPlayer", Unit)
 
 function HPlayer:initialize(player)
@@ -121,7 +124,7 @@ function HPlayer:initialize(player)
     self.health = 30
     self.deck = {}
     player:getRoom():setPlayerMark(player, "@DeckCards", 30)
-    self.shield = 0
+    self.armor = 0
 end
 
 function HPlayer:drawCards(num)
@@ -137,21 +140,34 @@ function HPlayer:drawCards(num)
     end
 end
 
-function HPlayer:_setShield(point)
-    self.shield = math.max(point, 0)
-    self._room:setPlayerMark(self.player, "@shield", self.shield)
+function HPlayer:_setArmor(point)
+    self.armor = math.max(point, 0)
+    self._room:setPlayerMark(self.player, "@armor", self.armor)
 end
 
 function HPlayer:_onDamaged(target, point, card)
-    point = point - self.shield
-    self._setShield(self.shield - point)
+    point = point - self.armor
+    self._setArmor(self.armor - point)
     if point > 0 then
         Unit:_onDamaged(target, point, card)
     end
 end
 
 function HPlayer:_onKilled()
-    self._room:gameOver(self == player1 and player2:objectName() or player1:objectName())
+    self._room:gameOver(self:getOpponent().player:objectName())
+end
+
+function HPlayer:getOpponent()
+    return self == player1 and player2 or player1
+end
+
+function HPlayer:addArmor(point)
+    self.armor = self.armor + math.max(point, 0)
+    self._room:addPlayerMark(self.player, "@armor")
+end
+
+function HPlayer:loseHp(point)
+    self:_onDamaged(nil, point)
 end
 
 Minion = class("Minion", Unit)
@@ -258,12 +274,14 @@ function createHeroPower(skill)
     return vsSkill
 end
 
-function createHero(extension, name, chinese, title, skill, female)
+local heroType = { "法师", "猎人", "圣骑士", "战士", "德鲁伊", "术士", "萨满祭司", "牧师", "潜行者" }
+
+function createHero(extension, name, chinese, type, skill, female)
     HearthstoneHeros[chinese] = name
     sgs.CreateTranslationTable {
         [name] = chinese,
-        ["&" .. name] = title,
-        ["#" .. name] = title,
+        ["&" .. name] = chinese:split("·")[1],
+        ["#" .. name] = heroType[type],
         
         ["designer:" .. name] = "炉石传说",
         ["illustrator:" .. name] = "炉石传说",
